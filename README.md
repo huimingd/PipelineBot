@@ -1,4 +1,4 @@
-# Resource Execution Framework
+# PipelineBot Framework
 
 A Python framework for executing tasks with comprehensive resource monitoring and management. This framework provides inheritable classes that can be extended for any type of task execution while maintaining consistent resource allocation, monitoring, and reporting.
 
@@ -16,20 +16,21 @@ A Python framework for executing tasks with comprehensive resource monitoring an
 
 ### From PyPI (when published)
 ```bash
-pip install resource-execution-framework
+pip install PipelineBot
 
 From Source
 
-git clone https://github.com/yourusername/resource-execution-framework.git
-cd resource-execution-framework
+git clone https://github.com/huimingd/PipelineBot
+cd PipelineBot
 pip install -e .
 
 Requirements
 pip install -r requirements.txt
+```
 
-Quick Start
-Basic Usage
-
+## Quick Start
+### Basic Usage
+```bash
 from resource_executor import TaskExecutor, ResourceConfig, BaseTask
 
 # Create a custom task
@@ -75,8 +76,9 @@ class BioinformaticsExecutor(TaskExecutor):
 # Use specialized executor
 bio_executor = BioinformaticsExecutor(config)
 results = bio_executor.execute_alignment_pipeline(["sample1.fastq", "sample2.fastq"])
+```
 
-Examples
+## Examples
 
 See the examples/ directory for more detailed usage examples:
 
@@ -84,19 +86,19 @@ See the examples/ directory for more detailed usage examples:
     parallel_execution.py: Parallel task processing
     custom_executor.py: Creating specialized executors
 
-Documentation
+## Documentation
 
     Installation Guide
     Quick Start Guide
     API Reference
 
-Testing
+## Testing
 
 Run the test suite:
-
+```bash
 python -m pytest tests/
-
-Contributing
+```
+## Contributing
 
     Fork the repository
     Create a feature branch (git checkout -b feature/amazing-feature)
@@ -104,10 +106,11 @@ Contributing
     Push to the branch (git push origin feature/amazing-feature)
     Open a Pull Request
 
-License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-Changelog
+
+## Changelog
 v0.1.0
 
     Initial release
