@@ -347,8 +347,7 @@ class TaskExecutor:
         temp_executor = TaskExecutor(self.config, self.logger)
         return temp_executor.execute_task(task, monitor=monitor)
     
-    def _execute_callable_wrapper(self, task_func: Callable, task_id: str, 
-                                 args: tuple, kwargs: dict, monitor: bool) -> TaskResult:
+    def _execute_callable_wrapper(self, task_func: Callable, task_id: str, args: tuple, kwargs: dict, monitor: bool) -> TaskResult:
         """Wrapper for executing callable in parallel"""
         temp_executor = TaskExecutor(self.config, self.logger)
         return temp_executor.execute_task(task_func, task_id, monitor, *args, **kwargs)
@@ -356,8 +355,8 @@ class TaskExecutor:
     def _threshold_violation_callback(self, violation: Dict[str, Any]):
         """Callback for threshold violations"""
         self.logger.warning(f"Resource threshold violation: {violation['type']} usage "
-                          f"{violation['actual']:.1f}% exceeds threshold {violation['threshold']:.1f}% "
-                          f"for task {violation['task_id']}")
+                        f"{violation['actual']:.1f}% exceeds threshold {violation['threshold']:.1f}% "
+                        f"for task {violation['task_id']}")
     
     def get_execution_summary(self) -> Dict[str, Any]:
         """Get summary of all executed tasks"""
