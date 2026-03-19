@@ -7,10 +7,17 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from resource_executor import (
-    TaskExecutor, ResourceConfig, BaseTask,
-    CPUIntensiveTask, MemoryIntensiveTask
-)
+from resource_executor.core.config import ResourceConfig
+#from resource_executor.core.monitor import ResourceMonitor, TaskMetrics, SystemResourceMonitor, ResourceThresholdMonitor
+from resource_executor.core.executor import TaskExecutor, TaskResult
+#from resource_executor.core.tasks import BaseTask
+from resource_executor.examples.basic_tasks import CPUIntensiveTask, MemoryIntensiveTask, IOIntensiveTask
+#from resource_executor.examples.specialized_executors import BioinformaticsExecutor
+
+#from resource_executor import (
+#    TaskExecutor, ResourceConfig, BaseTask,
+#    CPUIntensiveTask, MemoryIntensiveTask
+#)
 
 def main():
     print("=== Basic Usage Example ===\n")
