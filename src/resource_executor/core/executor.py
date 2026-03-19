@@ -56,7 +56,7 @@ class TaskExecutor:
         self.threshold_monitor.add_callback(self._threshold_violation_callback)
         
     def execute_task(self, task: Union[BaseTask, Callable], task_id: Optional[str] = None, 
-                    monitor: bool = True, timeout: Optional[int] = None, *args, **kwargs) -> TaskResult:
+        monitor: bool = True, timeout: Optional[int] = None, *args, **kwargs) -> TaskResult:
         """
         Execute a single task with optional monitoring
         
@@ -170,7 +170,7 @@ class TaskExecutor:
         return task_result
     
     def execute_parallel_tasks(self, tasks: List[Union[BaseTask, tuple]], 
-                             monitor: bool = True, start_system_monitor: bool = True) -> List[TaskResult]:
+        monitor: bool = True, start_system_monitor: bool = True) -> List[TaskResult]:
         """
         Execute multiple tasks in parallel
         
@@ -274,7 +274,7 @@ class TaskExecutor:
         return results
     
     def execute_sequential_tasks(self, tasks: List[Union[BaseTask, tuple]], 
-                               monitor: bool = True, stop_on_failure: bool = False) -> List[TaskResult]:
+        monitor: bool = True, stop_on_failure: bool = False) -> List[TaskResult]:
         """
         Execute tasks sequentially
         
@@ -347,7 +347,8 @@ class TaskExecutor:
         temp_executor = TaskExecutor(self.config, self.logger)
         return temp_executor.execute_task(task, monitor=monitor)
     
-    def _execute_callable_wrapper(self, task_func: Callable, task_id: str, args: tuple, kwargs: dict, monitor: bool) -> TaskResult:
+    def _execute_callable_wrapper(self, task_func: Callable, task_id: str, 
+                                 args: tuple, kwargs: dict, monitor: bool) -> TaskResult:
         """Wrapper for executing callable in parallel"""
         temp_executor = TaskExecutor(self.config, self.logger)
         return temp_executor.execute_task(task_func, task_id, monitor, *args, **kwargs)
@@ -355,8 +356,8 @@ class TaskExecutor:
     def _threshold_violation_callback(self, violation: Dict[str, Any]):
         """Callback for threshold violations"""
         self.logger.warning(f"Resource threshold violation: {violation['type']} usage "
-                        f"{violation['actual']:.1f}% exceeds threshold {violation['threshold']:.1f}% "
-                        f"for task {violation['task_id']}")
+                          f"{violation['actual']:.1f}% exceeds threshold {violation['threshold']:.1f}% "
+                          f"for task {violation['task_id']}")
     
     def get_execution_summary(self) -> Dict[str, Any]:
         """Get summary of all executed tasks"""
@@ -375,5 +376,60 @@ class TaskExecutor:
             avg_duration = total_duration / len(tasks_with_metrics)
             
             avg_cpu = sum(
-                task.metrics.get_average_cpu()
-                
+                sum(task.metrics.cpu_percent) / len(task.metrics.cpu_percent) 
+                if task.metrics.cpu_percent else 0 
+                for task in tasks_with_metrics
+            ) / len(tasks_with_metrics)
+            
+            peak_memory = max(task.metrics.peak_memory_mb for task in tasks_with_metrics)
+        else:
+            total_duration = avg_duration = avg_cpu = peak_memory = 0
+        
+        return {
+            "execution_summary": {
+                "total_tasks": total_tasks,
+                "successful_tasks": successful_tasks,
+                "failed_tasks": failed_tasks,
+                "success_rate": (successful_tasks / total_tasks * 100) if total_tasks > 0 else 0,
+                "total_duration_seconds": total_duration,
+                "average_duration_seconds": avg_duration,
+                "average_cpu_percent": avg_cpu,
+                "peak_memory_mb": peak_memory
+            },
+            "resource_config": {
+                "cpus": self.config.cpus,
+                "memory_gb": self.config.memory_gb,
+                "max_processes": self.config.max_processes,
+                "timeout_seconds": self.config.timeout_seconds,
+                "execution_mode": self.config.execution_mode
+            },
+            "task_results": [
+                {
+                    "task_id": task.task_id,
+                    "success": task.success,
+                    "error": str(task.error) if task.error else None,
+                    "metrics": task.metrics.to_dict() if task.metrics else None
+                }
+                for task in self.executed_tasks
+            ]
+        }
+    
+    def save_results(self, filepath: Union[str, Path], format: str = "json"):
+        """Save execution results to file"""
+        filepath = Path(filepath)
+        
+        if format.lower() == "json":
+            with open(filepath, 'w') as f:
+                json.dump(self.get_execution_summary(), f, indent=2)
+        elif format.lower() == "pickle":
+            with open(filepath, 'wb') as f:
+                pickle.dump(self.executed_tasks, f)
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+        
+        self.logger.info(f"Results saved to {filepath}")
+    
+    def clear_results(self):
+        """Clear all execution results"""
+        self.executed_tasks.clear()
+        self._task_counter = 0
