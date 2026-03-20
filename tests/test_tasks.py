@@ -13,8 +13,8 @@ from resource_executor.core.config import ResourceConfig
 class TestTask(BaseTask):
     """Test implementation of BaseTask"""
     
-    def __init__(self, task_id: str, duration: float = 0.1, should_fail: bool = False, result_value: str = None):
-        super().__init__(task_id)
+    def __init__(self, task_id: str, duration: float = 0.1, should_fail: bool = False, result_value: str = None, **kwargs):
+        super().__init__(task_id, **kwargs)
         self.duration = duration
         self.should_fail = should_fail
         self.result_value = result_value or f"Result from {task_id}"

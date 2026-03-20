@@ -7,17 +7,34 @@ import tempfile
 import shutil
 import time
 import os
+import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-# Add src to path for imports
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Add src to path for imports - IMPORTANT FIX
+project_root = Path(__file__).parent.parent
+src_path = project_root / "src"
+sys.path.insert(0, str(src_path))
 
-from resource_executor.core.config import ResourceConfig
-from resource_executor.core.executor import TaskExecutor
-from resource_executor.core.tasks import BaseTask
-from resource_executor.core.monitor import ResourceMonitor
+# Now import after adding to path
+try:
+    from resource_executor.core.config import ResourceConfig
+    from resource_executor.core.executor import TaskExecutor
+    from resource_executor.core.tasks import BaseTask
+    from resource_executor.core.monitor import ResourceMonitor
+except ImportError as e:
+    print(f"Import error in conftest.py: {e}")
+    print(f"Python path: {sys.path}")
+    print(f"Project root: {project_root}")
+    print(f"Src path: {src_path}")
+    raise
+
+# Import psutil for mocking
+try:
+    import psutil
+except ImportError:
+    print("psutil not installed. Install with: pip install psutil")
+    raise
 
 
 @pytest.fixture
@@ -139,4 +156,3 @@ def failing_task():
 def resource_task():
     """Resource intensive task"""
     return ResourceIntensiveTask("resource_task", memory_mb=5, cpu_duration=0.2)
-	

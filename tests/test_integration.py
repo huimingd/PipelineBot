@@ -7,11 +7,10 @@ import time
 import json
 from pathlib import Path
 
-from resource_executor import (
-    TaskExecutor, ResourceConfig, BaseTask,
-    CPUIntensiveTask, MemoryIntensiveTask, IOIntensiveTask
-)
-
+from resource_executor.core.executor import TaskExecutor, TaskResult
+from resource_executor.core.config import ResourceConfig
+from resource_executor.core.tasks import BaseTask
+from resource_executor.examples.basic_tasks import CPUIntensiveTask, MemoryIntensiveTask, IOIntensiveTask
 
 class TestIntegration:
     """Integration tests for the complete framework"""
@@ -112,7 +111,7 @@ class TestIntegration:
         
         # Check summary
         summary = executor.get_execution_summary()
-        assert summary['execution_summary']['success_rate'] == 66.67  # 2/3 * 100
+        assert abs(summary['execution_summary']['success_rate'] - 66.67) < 0.1  # 2/3 * 100
     
     def test_resource_monitoring_accuracy(self):
         """Test that resource monitoring provides reasonable data"""

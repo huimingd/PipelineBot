@@ -5,6 +5,7 @@ Tests for ResourceMonitor and related monitoring classes
 import pytest
 import time
 import threading
+import psutil
 from unittest.mock import Mock, patch, MagicMock
 
 from resource_executor.core.monitor import (

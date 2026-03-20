@@ -73,6 +73,10 @@ class TaskExecutor:
         """
         
         # Handle different task types
+        if not isinstance(task, BaseTask) and not callable(task):
+            raise TypeError(f"Task must be a BaseTask instance or callable, got {type(task).__name__}")
+
+        self._task_counter += 1
         if isinstance(task, BaseTask):
             actual_task_id = task.task_id
             task_func = task.execute
@@ -80,7 +84,6 @@ class TaskExecutor:
             task_kwargs = {}
             estimated_resources = task.get_estimated_resources()
         else:
-            self._task_counter += 1
             actual_task_id = task_id or f"task_{self._task_counter}"
             task_func = task
             task_args = args
@@ -193,9 +196,9 @@ class TaskExecutor:
         
         try:
             with executor_class(max_workers=self.config.max_processes) as executor:
-                # Submit all tasks
-                future_to_task = {}
-                
+                # Submit all tasks, tracking submission index to preserve order
+                futures_ordered = []
+
                 for i, task_spec in enumerate(tasks):
                     if isinstance(task_spec, BaseTask):
                         task_id = task_spec.task_id
@@ -209,56 +212,60 @@ class TaskExecutor:
                             task_kwargs = {}
                         else:
                             raise ValueError(f"Invalid task specification format: {task_spec}")
-                        
+
                         task_id = f"parallel_task_{i+1}"
                         future = executor.submit(
-                            self._execute_callable_wrapper, 
+                            self._execute_callable_wrapper,
                             task_func, task_id, task_args, task_kwargs, monitor
                         )
-                    
-                    future_to_task[future] = task_id
-                
-                # Collect results with timeout
+
+                    futures_ordered.append((future, task_id))
+
+                # Collect results in submission order
+                index_to_result = {}
+                future_to_index = {f: i for i, (f, _) in enumerate(futures_ordered)}
+                future_to_task = {f: tid for f, tid in futures_ordered}
+
                 try:
                     for future in as_completed(future_to_task, timeout=self.config.timeout_seconds):
                         task_id = future_to_task[future]
+                        idx = future_to_index[future]
                         try:
                             result = future.result()
-                            results.append(result)
+                            index_to_result[idx] = result
                             self.logger.debug(f"Parallel task {task_id} completed")
                         except Exception as e:
                             self.logger.error(f"Parallel task {task_id} failed with exception: {e}")
-                            failed_result = TaskResult(
+                            index_to_result[idx] = TaskResult(
                                 task_id=task_id,
                                 success=False,
                                 error=e
                             )
-                            results.append(failed_result)
-                            
+
                 except TimeoutError:
                     self.logger.error(f"Parallel execution timed out after {self.config.timeout_seconds}s")
-                    # Handle remaining futures
                     for future, task_id in future_to_task.items():
+                        idx = future_to_index[future]
+                        if idx in index_to_result:
+                            continue
                         if not future.done():
                             future.cancel()
-                            timeout_result = TaskResult(
+                            index_to_result[idx] = TaskResult(
                                 task_id=task_id,
                                 success=False,
                                 error=TimeoutError(f"Task {task_id} cancelled due to overall timeout")
                             )
-                            results.append(timeout_result)
-                        elif future not in [f for f in as_completed(future_to_task, timeout=0)]:
-                            # Future completed but we didn't process it
+                        else:
                             try:
-                                result = future.result()
-                                results.append(result)
+                                index_to_result[idx] = future.result()
                             except Exception as e:
-                                failed_result = TaskResult(
+                                index_to_result[idx] = TaskResult(
                                     task_id=task_id,
                                     success=False,
                                     error=e
                                 )
-                                results.append(failed_result)
+
+                results = [index_to_result[i] for i in range(len(futures_ordered))]
                     
         finally:
             # Stop system monitoring
@@ -319,18 +326,17 @@ class TaskExecutor:
     
     def _execute_with_timeout(self, func: Callable, timeout: int, *args, **kwargs):
         """Execute function with timeout (simple implementation)"""
-        # Note: This is a basic implementation. For more robust timeout handling,
-        # consider using signal (Unix) or threading with proper cancellation
         import signal
-        
+        import threading
+
         def timeout_handler(signum, frame):
             raise TimeoutError(f"Function execution timed out after {timeout} seconds")
-        
-        # Set up timeout (Unix-like systems only)
-        if hasattr(signal, 'SIGALRM'):
+
+        # SIGALRM only works on Unix and only on the main thread
+        if hasattr(signal, 'SIGALRM') and threading.current_thread() is threading.main_thread():
             old_handler = signal.signal(signal.SIGALRM, timeout_handler)
             signal.alarm(timeout)
-            
+
             try:
                 result = func(*args, **kwargs)
                 signal.alarm(0)  # Cancel the alarm
@@ -338,8 +344,6 @@ class TaskExecutor:
             finally:
                 signal.signal(signal.SIGALRM, old_handler)
         else:
-            # Fallback for systems without SIGALRM (like Windows)
-            # This is less reliable but better than nothing
             return func(*args, **kwargs)
     
     def _execute_single_task_wrapper(self, task: BaseTask, monitor: bool) -> TaskResult:
@@ -347,11 +351,11 @@ class TaskExecutor:
         temp_executor = TaskExecutor(self.config, self.logger)
         return temp_executor.execute_task(task, monitor=monitor)
     
-    def _execute_callable_wrapper(self, task_func: Callable, task_id: str, 
+    def _execute_callable_wrapper(self, task_func: Callable, task_id: str,
                                  args: tuple, kwargs: dict, monitor: bool) -> TaskResult:
         """Wrapper for executing callable in parallel"""
         temp_executor = TaskExecutor(self.config, self.logger)
-        return temp_executor.execute_task(task_func, task_id, monitor, *args, **kwargs)
+        return temp_executor.execute_task(task_func, task_id, monitor, None, *args, **kwargs)
     
     def _threshold_violation_callback(self, violation: Dict[str, Any]):
         """Callback for threshold violations"""
